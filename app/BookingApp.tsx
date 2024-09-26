@@ -8,7 +8,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { db } from "@/lib/firebaseConfig"; // Adjust the import path as necessary
 import { collection, addDoc } from "firebase/firestore";
 
@@ -84,6 +83,13 @@ export default function BookingApp() {
       return
     }
 
+    // Validate phone number (you may want to use a more robust validation)
+    const phoneRegex = /^\+?[1-9]\d{1,14}$/;
+    if (!phoneRegex.test(phone)) {
+      toast.error("Please enter a valid phone number.")
+      return
+    }
+
     const bookingData = { service, date, time, name, email, phone }
 
     try {
@@ -95,39 +101,40 @@ export default function BookingApp() {
         body: JSON.stringify(bookingData),
       })
 
-      const data = await response.json()
-      console.log('Response:', response) // Log the response object
-      console.log('Response Data:', data) // Log the response data
-
-      if (response.ok) {
-        // Store client information in Firestore
-        await addDoc(collection(db, "clients"), {
-          service,
-          date,
-          time,
-          name,
-          email,
-          phone,
-        });
-
-        toast.success("Your appointment has been successfully booked. Check your email for confirmation.")
-        if (data.previewUrl) {
-          console.log('Email preview:', data.previewUrl)
-        }
-        // Reset the form or navigate to a confirmation page
-        setStep('booking')
-        setDate(undefined)
-        setTime(undefined)
-        setService("haircut")
-        setName("")
-        setEmail("")
-        setPhone("")
-      } else {
-        throw new Error(data.message || 'Booking failed')
+      if (!response.ok) {
+        // If the response status is not in the 200-299 range, throw an error
+        throw new Error(`HTTP error! status: ${response.status}`)
       }
+
+      const data = await response.json()
+      console.log('Response:', response)
+      console.log('Response Data:', data)
+
+      // Store client information in Firestore
+      await addDoc(collection(db, "clients"), {
+        service,
+        date,
+        time,
+        name,
+        email,
+        phone,
+      });
+
+      toast.success("Your appointment has been successfully booked. Check your email and phone for confirmation.")
+      if (data.previewUrl) {
+        console.log('Email preview:', data.previewUrl)
+      }
+      // Reset the form or navigate to a confirmation page
+      setStep('booking')
+      setDate(undefined)
+      setTime(undefined)
+      setService("haircut")
+      setName("")
+      setEmail("")
+      setPhone("")
     } catch (error) {
       console.error('Error booking appointment:', error)
-      toast.error("There was an error booking your appointment. Please try again.")
+      toast.error(`There was an error booking your appointment: ${error.message}`)
     }
   }
 
@@ -208,18 +215,18 @@ export default function BookingApp() {
           <center><CardTitle>Select a Time</CardTitle></center>
         </CardHeader>
         <CardContent>
-          <Select onValueChange={handleTimeChange} value={time}>
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select a time" />
-            </SelectTrigger>
-            <SelectContent>
-              {timeSlots.map((slot) => (
-                <SelectItem key={slot} value={slot}>
-                  {slot}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="grid grid-cols-3 gap-2">
+            {timeSlots.map((slot) => (
+              <Button
+                key={slot}
+                variant={time === slot ? "default" : "outline"}
+                onClick={() => handleTimeChange(slot)}
+                className="w-full"
+              >
+                {slot}
+              </Button>
+            ))}
+          </div>
         </CardContent>
       </Card>
 
